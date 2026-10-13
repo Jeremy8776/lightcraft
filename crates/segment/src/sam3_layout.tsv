@@ -1,0 +1,216 @@
+# How to find each tensor of the Hugging Face layout (`facebook/sam3`, `detector_model.*`, `tracker_model.*`,
+# `tracker_neck.*`) inside a checkpoint saved in Meta's original layout (`detector.*`, `tracker.*`; the file ComfyUI's
+# SAM 3 nodes use). Both hold the same trained weights: 1,797 Hugging Face tensors are each reconstructed from the Meta
+# file byte for byte (see tests/meta_layout.rs).
+#
+# One rule per line, tab separated: kind, Hugging Face pattern, Meta template, argument. The first matching rule wins.
+#   pattern segments  `#` = one number (captured, numbered from 0), `*` = the rest of the name (last segment only)
+#   template          `{0}` a captured number, `{0*3}` times 3, `{0*3+1}` times 3 plus 1, `{*}` the captured rest
+#   kinds             direct     the Meta tensor as it is
+#                     slice N    part N (0 q, 1 k, 2 v) of three equal parts along dim 0 (Meta fuses q, k and v)
+#                     transpose  the Meta tensor transposed
+#                     drop D,N   the Meta tensor without its first N entries along dim D (a class token)
+#                     concat     the Meta tensors named in the template (comma separated), joined along dim 0
+direct	detector_model.text_encoder.text_model.final_layer_norm.*	detector.backbone.language_backbone.encoder.ln_final.{*}	
+direct	detector_model.text_encoder.text_model.embeddings.position_embedding.weight	detector.backbone.language_backbone.encoder.positional_embedding	
+direct	detector_model.text_encoder.text_model.embeddings.token_embedding.weight	detector.backbone.language_backbone.encoder.token_embedding.weight	
+direct	detector_model.text_encoder.text_model.encoder.layers.#.self_attn.out_proj.*	detector.backbone.language_backbone.encoder.transformer.resblocks.{0}.attn.out_proj.{*}	
+direct	detector_model.text_encoder.text_model.encoder.layers.#.layer_norm1.*	detector.backbone.language_backbone.encoder.transformer.resblocks.{0}.ln_1.{*}	
+direct	detector_model.text_encoder.text_model.encoder.layers.#.layer_norm2.*	detector.backbone.language_backbone.encoder.transformer.resblocks.{0}.ln_2.{*}	
+direct	detector_model.text_encoder.text_model.encoder.layers.#.mlp.fc1.*	detector.backbone.language_backbone.encoder.transformer.resblocks.{0}.mlp.c_fc.{*}	
+direct	detector_model.text_encoder.text_model.encoder.layers.#.mlp.fc2.*	detector.backbone.language_backbone.encoder.transformer.resblocks.{0}.mlp.c_proj.{*}	
+slice	detector_model.text_encoder.text_model.encoder.layers.#.self_attn.q_proj.*	detector.backbone.language_backbone.encoder.transformer.resblocks.{0}.attn.in_proj_{*}	0
+slice	detector_model.text_encoder.text_model.encoder.layers.#.self_attn.k_proj.*	detector.backbone.language_backbone.encoder.transformer.resblocks.{0}.attn.in_proj_{*}	1
+slice	detector_model.text_encoder.text_model.encoder.layers.#.self_attn.v_proj.*	detector.backbone.language_backbone.encoder.transformer.resblocks.{0}.attn.in_proj_{*}	2
+direct	detector_model.text_projection.*	detector.backbone.language_backbone.resizer.{*}	
+transpose	detector_model.text_encoder.text_projection.weight	detector.backbone.language_backbone.encoder.text_projection	
+direct	detector_model.vision_encoder.neck.fpn_layers.#.proj1.*	detector.backbone.vision_backbone.convs.{0}.conv_1x1.{*}	
+direct	detector_model.vision_encoder.neck.fpn_layers.#.proj2.*	detector.backbone.vision_backbone.convs.{0}.conv_3x3.{*}	
+direct	detector_model.vision_encoder.neck.fpn_layers.0.scale_layers.0.*	detector.backbone.vision_backbone.convs.0.dconv_2x2_0.{*}	
+direct	detector_model.vision_encoder.neck.fpn_layers.0.scale_layers.2.*	detector.backbone.vision_backbone.convs.0.dconv_2x2_1.{*}	
+direct	detector_model.vision_encoder.neck.fpn_layers.1.scale_layers.0.*	detector.backbone.vision_backbone.convs.1.dconv_2x2.{*}	
+direct	tracker_neck.fpn_layers.#.proj1.*	detector.backbone.vision_backbone.sam2_convs.{0}.conv_1x1.{*}	
+direct	tracker_neck.fpn_layers.#.proj2.*	detector.backbone.vision_backbone.sam2_convs.{0}.conv_3x3.{*}	
+direct	tracker_neck.fpn_layers.0.scale_layers.0.*	detector.backbone.vision_backbone.sam2_convs.0.dconv_2x2_0.{*}	
+direct	tracker_neck.fpn_layers.0.scale_layers.2.*	detector.backbone.vision_backbone.sam2_convs.0.dconv_2x2_1.{*}	
+direct	tracker_neck.fpn_layers.1.scale_layers.0.*	detector.backbone.vision_backbone.sam2_convs.1.dconv_2x2.{*}	
+direct	detector_model.vision_encoder.backbone.layers.#.attention.o_proj.*	detector.backbone.vision_backbone.trunk.blocks.{0}.attn.proj.{*}	
+direct	detector_model.vision_encoder.backbone.layers.#.mlp.fc1.*	detector.backbone.vision_backbone.trunk.blocks.{0}.mlp.fc1.{*}	
+direct	detector_model.vision_encoder.backbone.layers.#.mlp.fc2.*	detector.backbone.vision_backbone.trunk.blocks.{0}.mlp.fc2.{*}	
+direct	detector_model.vision_encoder.backbone.layers.#.layer_norm1.*	detector.backbone.vision_backbone.trunk.blocks.{0}.norm1.{*}	
+direct	detector_model.vision_encoder.backbone.layers.#.layer_norm2.*	detector.backbone.vision_backbone.trunk.blocks.{0}.norm2.{*}	
+slice	detector_model.vision_encoder.backbone.layers.#.attention.q_proj.*	detector.backbone.vision_backbone.trunk.blocks.{0}.attn.qkv.{*}	0
+slice	detector_model.vision_encoder.backbone.layers.#.attention.k_proj.*	detector.backbone.vision_backbone.trunk.blocks.{0}.attn.qkv.{*}	1
+slice	detector_model.vision_encoder.backbone.layers.#.attention.v_proj.*	detector.backbone.vision_backbone.trunk.blocks.{0}.attn.qkv.{*}	2
+direct	detector_model.vision_encoder.backbone.layer_norm.*	detector.backbone.vision_backbone.trunk.ln_pre.{*}	
+direct	detector_model.vision_encoder.backbone.embeddings.patch_embeddings.projection.weight	detector.backbone.vision_backbone.trunk.patch_embed.proj.weight	
+drop	detector_model.vision_encoder.backbone.embeddings.position_embeddings	detector.backbone.vision_backbone.trunk.pos_embed	1,1
+direct	detector_model.dot_product_scoring.text_mlp.layer1.*	detector.dot_prod_scoring.prompt_mlp.layers.0.{*}	
+direct	detector_model.dot_product_scoring.text_mlp.layer2.*	detector.dot_prod_scoring.prompt_mlp.layers.1.{*}	
+direct	detector_model.dot_product_scoring.text_mlp_out_norm.*	detector.dot_prod_scoring.prompt_mlp.out_norm.{*}	
+direct	detector_model.dot_product_scoring.text_proj.*	detector.dot_prod_scoring.prompt_proj.{*}	
+direct	detector_model.dot_product_scoring.query_proj.*	detector.dot_prod_scoring.hs_proj.{*}	
+direct	detector_model.geometry_encoder.boxes_direct_project.*	detector.geometry_encoder.boxes_direct_project.{*}	
+direct	detector_model.geometry_encoder.boxes_pool_project.*	detector.geometry_encoder.boxes_pool_project.{*}	
+direct	detector_model.geometry_encoder.boxes_pos_enc_project.*	detector.geometry_encoder.boxes_pos_enc_project.{*}	
+direct	detector_model.geometry_encoder.final_proj.*	detector.geometry_encoder.final_proj.{*}	
+direct	detector_model.geometry_encoder.cls_embed.weight	detector.geometry_encoder.cls_embed.weight	
+direct	detector_model.geometry_encoder.label_embed.weight	detector.geometry_encoder.label_embed.weight	
+direct	detector_model.geometry_encoder.output_layer_norm.*	detector.geometry_encoder.encode_norm.{*}	
+direct	detector_model.geometry_encoder.prompt_layer_norm.*	detector.geometry_encoder.norm.{*}	
+direct	detector_model.geometry_encoder.vision_layer_norm.*	detector.geometry_encoder.img_pre_norm.{*}	
+direct	detector_model.geometry_encoder.layers.#.cross_attn.o_proj.*	detector.geometry_encoder.encode.{0}.cross_attn_image.out_proj.{*}	
+direct	detector_model.geometry_encoder.layers.#.self_attn.o_proj.*	detector.geometry_encoder.encode.{0}.self_attn.out_proj.{*}	
+direct	detector_model.geometry_encoder.layers.#.mlp.fc1.*	detector.geometry_encoder.encode.{0}.linear1.{*}	
+direct	detector_model.geometry_encoder.layers.#.mlp.fc2.*	detector.geometry_encoder.encode.{0}.linear2.{*}	
+direct	detector_model.geometry_encoder.layers.#.layer_norm1.*	detector.geometry_encoder.encode.{0}.norm1.{*}	
+direct	detector_model.geometry_encoder.layers.#.layer_norm2.*	detector.geometry_encoder.encode.{0}.norm2.{*}	
+direct	detector_model.geometry_encoder.layers.#.layer_norm3.*	detector.geometry_encoder.encode.{0}.norm3.{*}	
+slice	detector_model.geometry_encoder.layers.#.cross_attn.q_proj.*	detector.geometry_encoder.encode.{0}.cross_attn_image.in_proj_{*}	0
+slice	detector_model.geometry_encoder.layers.#.cross_attn.k_proj.*	detector.geometry_encoder.encode.{0}.cross_attn_image.in_proj_{*}	1
+slice	detector_model.geometry_encoder.layers.#.cross_attn.v_proj.*	detector.geometry_encoder.encode.{0}.cross_attn_image.in_proj_{*}	2
+slice	detector_model.geometry_encoder.layers.#.self_attn.q_proj.*	detector.geometry_encoder.encode.{0}.self_attn.in_proj_{*}	0
+slice	detector_model.geometry_encoder.layers.#.self_attn.k_proj.*	detector.geometry_encoder.encode.{0}.self_attn.in_proj_{*}	1
+slice	detector_model.geometry_encoder.layers.#.self_attn.v_proj.*	detector.geometry_encoder.encode.{0}.self_attn.in_proj_{*}	2
+direct	detector_model.detr_encoder.layers.#.cross_attn.o_proj.*	detector.transformer.encoder.layers.{0}.cross_attn_image.out_proj.{*}	
+direct	detector_model.detr_encoder.layers.#.self_attn.o_proj.*	detector.transformer.encoder.layers.{0}.self_attn.out_proj.{*}	
+direct	detector_model.detr_encoder.layers.#.mlp.fc1.*	detector.transformer.encoder.layers.{0}.linear1.{*}	
+direct	detector_model.detr_encoder.layers.#.mlp.fc2.*	detector.transformer.encoder.layers.{0}.linear2.{*}	
+direct	detector_model.detr_encoder.layers.#.layer_norm1.*	detector.transformer.encoder.layers.{0}.norm1.{*}	
+direct	detector_model.detr_encoder.layers.#.layer_norm2.*	detector.transformer.encoder.layers.{0}.norm2.{*}	
+direct	detector_model.detr_encoder.layers.#.layer_norm3.*	detector.transformer.encoder.layers.{0}.norm3.{*}	
+slice	detector_model.detr_encoder.layers.#.cross_attn.q_proj.*	detector.transformer.encoder.layers.{0}.cross_attn_image.in_proj_{*}	0
+slice	detector_model.detr_encoder.layers.#.cross_attn.k_proj.*	detector.transformer.encoder.layers.{0}.cross_attn_image.in_proj_{*}	1
+slice	detector_model.detr_encoder.layers.#.cross_attn.v_proj.*	detector.transformer.encoder.layers.{0}.cross_attn_image.in_proj_{*}	2
+slice	detector_model.detr_encoder.layers.#.self_attn.q_proj.*	detector.transformer.encoder.layers.{0}.self_attn.in_proj_{*}	0
+slice	detector_model.detr_encoder.layers.#.self_attn.k_proj.*	detector.transformer.encoder.layers.{0}.self_attn.in_proj_{*}	1
+slice	detector_model.detr_encoder.layers.#.self_attn.v_proj.*	detector.transformer.encoder.layers.{0}.self_attn.in_proj_{*}	2
+direct	detector_model.detr_decoder.layers.#.self_attn.o_proj.*	detector.transformer.decoder.layers.{0}.self_attn.out_proj.{*}	
+direct	detector_model.detr_decoder.layers.#.text_cross_attn.o_proj.*	detector.transformer.decoder.layers.{0}.ca_text.out_proj.{*}	
+direct	detector_model.detr_decoder.layers.#.vision_cross_attn.o_proj.*	detector.transformer.decoder.layers.{0}.cross_attn.out_proj.{*}	
+direct	detector_model.detr_decoder.layers.#.mlp.fc1.*	detector.transformer.decoder.layers.{0}.linear1.{*}	
+direct	detector_model.detr_decoder.layers.#.mlp.fc2.*	detector.transformer.decoder.layers.{0}.linear2.{*}	
+direct	detector_model.detr_decoder.layers.#.vision_cross_attn_layer_norm.*	detector.transformer.decoder.layers.{0}.norm1.{*}	
+direct	detector_model.detr_decoder.layers.#.self_attn_layer_norm.*	detector.transformer.decoder.layers.{0}.norm2.{*}	
+direct	detector_model.detr_decoder.layers.#.mlp_layer_norm.*	detector.transformer.decoder.layers.{0}.norm3.{*}	
+direct	detector_model.detr_decoder.layers.#.text_cross_attn_layer_norm.*	detector.transformer.decoder.layers.{0}.catext_norm.{*}	
+slice	detector_model.detr_decoder.layers.#.self_attn.q_proj.*	detector.transformer.decoder.layers.{0}.self_attn.in_proj_{*}	0
+slice	detector_model.detr_decoder.layers.#.self_attn.k_proj.*	detector.transformer.decoder.layers.{0}.self_attn.in_proj_{*}	1
+slice	detector_model.detr_decoder.layers.#.self_attn.v_proj.*	detector.transformer.decoder.layers.{0}.self_attn.in_proj_{*}	2
+slice	detector_model.detr_decoder.layers.#.text_cross_attn.q_proj.*	detector.transformer.decoder.layers.{0}.ca_text.in_proj_{*}	0
+slice	detector_model.detr_decoder.layers.#.text_cross_attn.k_proj.*	detector.transformer.decoder.layers.{0}.ca_text.in_proj_{*}	1
+slice	detector_model.detr_decoder.layers.#.text_cross_attn.v_proj.*	detector.transformer.decoder.layers.{0}.ca_text.in_proj_{*}	2
+slice	detector_model.detr_decoder.layers.#.vision_cross_attn.q_proj.*	detector.transformer.decoder.layers.{0}.cross_attn.in_proj_{*}	0
+slice	detector_model.detr_decoder.layers.#.vision_cross_attn.k_proj.*	detector.transformer.decoder.layers.{0}.cross_attn.in_proj_{*}	1
+slice	detector_model.detr_decoder.layers.#.vision_cross_attn.v_proj.*	detector.transformer.decoder.layers.{0}.cross_attn.in_proj_{*}	2
+direct	detector_model.detr_decoder.output_layer_norm.*	detector.transformer.decoder.norm.{*}	
+direct	detector_model.detr_decoder.presence_layer_norm.*	detector.transformer.decoder.presence_token_out_norm.{*}	
+direct	detector_model.detr_decoder.presence_token.weight	detector.transformer.decoder.presence_token.weight	
+direct	detector_model.detr_decoder.query_embed.weight	detector.transformer.decoder.query_embed.weight	
+direct	detector_model.detr_decoder.reference_points.weight	detector.transformer.decoder.reference_points.weight	
+direct	detector_model.detr_decoder.box_head.layer1.*	detector.transformer.decoder.bbox_embed.layers.0.{*}	
+direct	detector_model.detr_decoder.box_head.layer2.*	detector.transformer.decoder.bbox_embed.layers.1.{*}	
+direct	detector_model.detr_decoder.box_head.layer3.*	detector.transformer.decoder.bbox_embed.layers.2.{*}	
+direct	detector_model.detr_decoder.box_rpb_embed_x.layer1.*	detector.transformer.decoder.boxRPB_embed_x.layers.0.{*}	
+direct	detector_model.detr_decoder.box_rpb_embed_x.layer2.*	detector.transformer.decoder.boxRPB_embed_x.layers.1.{*}	
+direct	detector_model.detr_decoder.box_rpb_embed_y.layer1.*	detector.transformer.decoder.boxRPB_embed_y.layers.0.{*}	
+direct	detector_model.detr_decoder.box_rpb_embed_y.layer2.*	detector.transformer.decoder.boxRPB_embed_y.layers.1.{*}	
+direct	detector_model.detr_decoder.presence_head.layer1.*	detector.transformer.decoder.presence_token_head.layers.0.{*}	
+direct	detector_model.detr_decoder.presence_head.layer2.*	detector.transformer.decoder.presence_token_head.layers.1.{*}	
+direct	detector_model.detr_decoder.presence_head.layer3.*	detector.transformer.decoder.presence_token_head.layers.2.{*}	
+direct	detector_model.detr_decoder.ref_point_head.layer1.*	detector.transformer.decoder.ref_point_head.layers.0.{*}	
+direct	detector_model.detr_decoder.ref_point_head.layer2.*	detector.transformer.decoder.ref_point_head.layers.1.{*}	
+direct	detector_model.mask_decoder.prompt_cross_attn.o_proj.*	detector.segmentation_head.cross_attend_prompt.out_proj.{*}	
+slice	detector_model.mask_decoder.prompt_cross_attn.q_proj.*	detector.segmentation_head.cross_attend_prompt.in_proj_{*}	0
+slice	detector_model.mask_decoder.prompt_cross_attn.k_proj.*	detector.segmentation_head.cross_attend_prompt.in_proj_{*}	1
+slice	detector_model.mask_decoder.prompt_cross_attn.v_proj.*	detector.segmentation_head.cross_attend_prompt.in_proj_{*}	2
+direct	detector_model.mask_decoder.prompt_cross_attn_norm.*	detector.segmentation_head.cross_attn_norm.{*}	
+direct	detector_model.mask_decoder.instance_projection.*	detector.segmentation_head.instance_seg_head.{*}	
+direct	detector_model.mask_decoder.semantic_projection.*	detector.segmentation_head.semantic_seg_head.{*}	
+direct	detector_model.mask_decoder.mask_embedder.layers.#.*	detector.segmentation_head.mask_predictor.mask_embed.layers.{0}.{*}	
+direct	detector_model.mask_decoder.pixel_decoder.conv_layers.#.*	detector.segmentation_head.pixel_decoder.conv_layers.{0}.{*}	
+direct	detector_model.mask_decoder.pixel_decoder.norms.#.*	detector.segmentation_head.pixel_decoder.norms.{0}.{*}	
+direct	tracker_model.mask_downsample.*	tracker.mask_downsample.{*}	
+direct	tracker_model.memory_encoder.memory_fuser.layers.#.depthwise_conv.*	tracker.maskmem_backbone.fuser.layers.{0}.dwconv.{*}	
+direct	tracker_model.memory_encoder.memory_fuser.layers.#.layer_norm.*	tracker.maskmem_backbone.fuser.layers.{0}.norm.{*}	
+direct	tracker_model.memory_encoder.memory_fuser.layers.#.pointwise_conv1.*	tracker.maskmem_backbone.fuser.layers.{0}.pwconv1.{*}	
+direct	tracker_model.memory_encoder.memory_fuser.layers.#.pointwise_conv2.*	tracker.maskmem_backbone.fuser.layers.{0}.pwconv2.{*}	
+direct	tracker_model.memory_encoder.memory_fuser.layers.#.scale	tracker.maskmem_backbone.fuser.layers.{0}.gamma	
+direct	tracker_model.memory_encoder.mask_downsampler.layers.#.conv.*	tracker.maskmem_backbone.mask_downsampler.encoder.{0*3}.{*}	
+direct	tracker_model.memory_encoder.mask_downsampler.layers.#.layer_norm.*	tracker.maskmem_backbone.mask_downsampler.encoder.{0*3+1}.{*}	
+direct	tracker_model.memory_encoder.mask_downsampler.final_conv.*	tracker.maskmem_backbone.mask_downsampler.encoder.12.{*}	
+direct	tracker_model.memory_encoder.projection.*	tracker.maskmem_backbone.out_proj.{*}	
+direct	tracker_model.memory_encoder.feature_projection.*	tracker.maskmem_backbone.pix_feat_proj.{*}	
+direct	tracker_model.memory_temporal_positional_encoding	tracker.maskmem_tpos_enc	
+direct	tracker_model.no_memory_embedding	tracker.no_mem_embed	
+direct	tracker_model.no_memory_positional_encoding	tracker.no_mem_pos_enc	
+direct	tracker_model.occlusion_spatial_embedding_parameter	tracker.no_obj_embed_spatial	
+direct	tracker_model.no_object_pointer	tracker.no_obj_ptr	
+direct	tracker_model.object_pointer_proj.proj_in.*	tracker.obj_ptr_proj.layers.0.{*}	
+direct	tracker_model.object_pointer_proj.layers.#.*	tracker.obj_ptr_proj.layers.{0+1}.{*}	
+direct	tracker_model.object_pointer_proj.proj_out.*	tracker.obj_ptr_proj.layers.2.{*}	
+direct	tracker_model.temporal_positional_encoding_projection_layer.*	tracker.obj_ptr_tpos_proj.{*}	
+direct	tracker_model.mask_decoder.conv_s0.*	tracker.sam_mask_decoder.conv_s0.{*}	
+direct	tracker_model.mask_decoder.conv_s1.*	tracker.sam_mask_decoder.conv_s1.{*}	
+direct	tracker_model.mask_decoder.iou_token.weight	tracker.sam_mask_decoder.iou_token.weight	
+direct	tracker_model.mask_decoder.mask_tokens.weight	tracker.sam_mask_decoder.mask_tokens.weight	
+direct	tracker_model.mask_decoder.obj_score_token.weight	tracker.sam_mask_decoder.obj_score_token.weight	
+direct	tracker_model.mask_decoder.iou_prediction_head.proj_in.*	tracker.sam_mask_decoder.iou_prediction_head.layers.0.{*}	
+direct	tracker_model.mask_decoder.iou_prediction_head.layers.#.*	tracker.sam_mask_decoder.iou_prediction_head.layers.{0+1}.{*}	
+direct	tracker_model.mask_decoder.iou_prediction_head.proj_out.*	tracker.sam_mask_decoder.iou_prediction_head.layers.2.{*}	
+direct	tracker_model.mask_decoder.pred_obj_score_head.proj_in.*	tracker.sam_mask_decoder.pred_obj_score_head.layers.0.{*}	
+direct	tracker_model.mask_decoder.pred_obj_score_head.layers.#.*	tracker.sam_mask_decoder.pred_obj_score_head.layers.{0+1}.{*}	
+direct	tracker_model.mask_decoder.pred_obj_score_head.proj_out.*	tracker.sam_mask_decoder.pred_obj_score_head.layers.2.{*}	
+direct	tracker_model.mask_decoder.output_hypernetworks_mlps.#.proj_in.*	tracker.sam_mask_decoder.output_hypernetworks_mlps.{0}.layers.0.{*}	
+direct	tracker_model.mask_decoder.output_hypernetworks_mlps.#.layers.#.*	tracker.sam_mask_decoder.output_hypernetworks_mlps.{0}.layers.{1+1}.{*}	
+direct	tracker_model.mask_decoder.output_hypernetworks_mlps.#.proj_out.*	tracker.sam_mask_decoder.output_hypernetworks_mlps.{0}.layers.2.{*}	
+direct	tracker_model.mask_decoder.upscale_conv1.*	tracker.sam_mask_decoder.output_upscaling.0.{*}	
+direct	tracker_model.mask_decoder.upscale_layer_norm.*	tracker.sam_mask_decoder.output_upscaling.1.{*}	
+direct	tracker_model.mask_decoder.upscale_conv2.*	tracker.sam_mask_decoder.output_upscaling.3.{*}	
+direct	tracker_model.mask_decoder.transformer.layers.#.cross_attn_image_to_token.q_proj.*	tracker.sam_mask_decoder.transformer.layers.{0}.cross_attn_image_to_token.q_proj.{*}	
+direct	tracker_model.mask_decoder.transformer.layers.#.cross_attn_image_to_token.k_proj.*	tracker.sam_mask_decoder.transformer.layers.{0}.cross_attn_image_to_token.k_proj.{*}	
+direct	tracker_model.mask_decoder.transformer.layers.#.cross_attn_image_to_token.v_proj.*	tracker.sam_mask_decoder.transformer.layers.{0}.cross_attn_image_to_token.v_proj.{*}	
+direct	tracker_model.mask_decoder.transformer.layers.#.cross_attn_image_to_token.o_proj.*	tracker.sam_mask_decoder.transformer.layers.{0}.cross_attn_image_to_token.out_proj.{*}	
+direct	tracker_model.mask_decoder.transformer.layers.#.cross_attn_token_to_image.q_proj.*	tracker.sam_mask_decoder.transformer.layers.{0}.cross_attn_token_to_image.q_proj.{*}	
+direct	tracker_model.mask_decoder.transformer.layers.#.cross_attn_token_to_image.k_proj.*	tracker.sam_mask_decoder.transformer.layers.{0}.cross_attn_token_to_image.k_proj.{*}	
+direct	tracker_model.mask_decoder.transformer.layers.#.cross_attn_token_to_image.v_proj.*	tracker.sam_mask_decoder.transformer.layers.{0}.cross_attn_token_to_image.v_proj.{*}	
+direct	tracker_model.mask_decoder.transformer.layers.#.cross_attn_token_to_image.o_proj.*	tracker.sam_mask_decoder.transformer.layers.{0}.cross_attn_token_to_image.out_proj.{*}	
+direct	tracker_model.mask_decoder.transformer.layers.#.self_attn.q_proj.*	tracker.sam_mask_decoder.transformer.layers.{0}.self_attn.q_proj.{*}	
+direct	tracker_model.mask_decoder.transformer.layers.#.self_attn.k_proj.*	tracker.sam_mask_decoder.transformer.layers.{0}.self_attn.k_proj.{*}	
+direct	tracker_model.mask_decoder.transformer.layers.#.self_attn.v_proj.*	tracker.sam_mask_decoder.transformer.layers.{0}.self_attn.v_proj.{*}	
+direct	tracker_model.mask_decoder.transformer.layers.#.self_attn.o_proj.*	tracker.sam_mask_decoder.transformer.layers.{0}.self_attn.out_proj.{*}	
+direct	tracker_model.mask_decoder.transformer.layers.#.mlp.proj_in.*	tracker.sam_mask_decoder.transformer.layers.{0}.mlp.lin1.{*}	
+direct	tracker_model.mask_decoder.transformer.layers.#.mlp.proj_out.*	tracker.sam_mask_decoder.transformer.layers.{0}.mlp.lin2.{*}	
+direct	tracker_model.mask_decoder.transformer.layers.#.layer_norm1.*	tracker.sam_mask_decoder.transformer.layers.{0}.norm1.{*}	
+direct	tracker_model.mask_decoder.transformer.layers.#.layer_norm2.*	tracker.sam_mask_decoder.transformer.layers.{0}.norm2.{*}	
+direct	tracker_model.mask_decoder.transformer.layers.#.layer_norm3.*	tracker.sam_mask_decoder.transformer.layers.{0}.norm3.{*}	
+direct	tracker_model.mask_decoder.transformer.layers.#.layer_norm4.*	tracker.sam_mask_decoder.transformer.layers.{0}.norm4.{*}	
+direct	tracker_model.mask_decoder.transformer.final_attn_token_to_image.q_proj.*	tracker.sam_mask_decoder.transformer.final_attn_token_to_image.q_proj.{*}	
+direct	tracker_model.mask_decoder.transformer.final_attn_token_to_image.k_proj.*	tracker.sam_mask_decoder.transformer.final_attn_token_to_image.k_proj.{*}	
+direct	tracker_model.mask_decoder.transformer.final_attn_token_to_image.v_proj.*	tracker.sam_mask_decoder.transformer.final_attn_token_to_image.v_proj.{*}	
+direct	tracker_model.mask_decoder.transformer.final_attn_token_to_image.o_proj.*	tracker.sam_mask_decoder.transformer.final_attn_token_to_image.out_proj.{*}	
+direct	tracker_model.mask_decoder.transformer.layer_norm_final_attn.*	tracker.sam_mask_decoder.transformer.norm_final_attn.{*}	
+direct	tracker_model.prompt_encoder.mask_embed.conv1.*	tracker.sam_prompt_encoder.mask_downscaling.0.{*}	
+direct	tracker_model.prompt_encoder.mask_embed.layer_norm1.*	tracker.sam_prompt_encoder.mask_downscaling.1.{*}	
+direct	tracker_model.prompt_encoder.mask_embed.conv2.*	tracker.sam_prompt_encoder.mask_downscaling.3.{*}	
+direct	tracker_model.prompt_encoder.mask_embed.layer_norm2.*	tracker.sam_prompt_encoder.mask_downscaling.4.{*}	
+direct	tracker_model.prompt_encoder.mask_embed.conv3.*	tracker.sam_prompt_encoder.mask_downscaling.6.{*}	
+direct	tracker_model.prompt_encoder.no_mask_embed.weight	tracker.sam_prompt_encoder.no_mask_embed.weight	
+direct	tracker_model.prompt_encoder.not_a_point_embed.weight	tracker.sam_prompt_encoder.not_a_point_embed.weight	
+direct	tracker_model.prompt_encoder.shared_embedding.positional_embedding	tracker.sam_prompt_encoder.pe_layer.positional_encoding_gaussian_matrix	
+direct	tracker_model.shared_image_embedding.positional_embedding	tracker.sam_prompt_encoder.pe_layer.positional_encoding_gaussian_matrix	
+concat	tracker_model.prompt_encoder.point_embed.weight	tracker.sam_prompt_encoder.point_embeddings.0.weight,tracker.sam_prompt_encoder.point_embeddings.1.weight,tracker.sam_prompt_encoder.point_embeddings.2.weight,tracker.sam_prompt_encoder.point_embeddings.3.weight	
+direct	tracker_model.memory_attention.layers.#.cross_attn_image.q_proj.*	tracker.transformer.encoder.layers.{0}.cross_attn_image.q_proj.{*}	
+direct	tracker_model.memory_attention.layers.#.cross_attn_image.k_proj.*	tracker.transformer.encoder.layers.{0}.cross_attn_image.k_proj.{*}	
+direct	tracker_model.memory_attention.layers.#.cross_attn_image.v_proj.*	tracker.transformer.encoder.layers.{0}.cross_attn_image.v_proj.{*}	
+direct	tracker_model.memory_attention.layers.#.cross_attn_image.o_proj.*	tracker.transformer.encoder.layers.{0}.cross_attn_image.out_proj.{*}	
+direct	tracker_model.memory_attention.layers.#.self_attn.q_proj.*	tracker.transformer.encoder.layers.{0}.self_attn.q_proj.{*}	
+direct	tracker_model.memory_attention.layers.#.self_attn.k_proj.*	tracker.transformer.encoder.layers.{0}.self_attn.k_proj.{*}	
+direct	tracker_model.memory_attention.layers.#.self_attn.v_proj.*	tracker.transformer.encoder.layers.{0}.self_attn.v_proj.{*}	
+direct	tracker_model.memory_attention.layers.#.self_attn.o_proj.*	tracker.transformer.encoder.layers.{0}.self_attn.out_proj.{*}	
+direct	tracker_model.memory_attention.layers.#.linear1.*	tracker.transformer.encoder.layers.{0}.linear1.{*}	
+direct	tracker_model.memory_attention.layers.#.linear2.*	tracker.transformer.encoder.layers.{0}.linear2.{*}	
+direct	tracker_model.memory_attention.layers.#.layer_norm1.*	tracker.transformer.encoder.layers.{0}.norm1.{*}	
+direct	tracker_model.memory_attention.layers.#.layer_norm2.*	tracker.transformer.encoder.layers.{0}.norm2.{*}	
+direct	tracker_model.memory_attention.layers.#.layer_norm3.*	tracker.transformer.encoder.layers.{0}.norm3.{*}	
+direct	tracker_model.memory_attention.layer_norm.*	tracker.transformer.encoder.norm.{*}	

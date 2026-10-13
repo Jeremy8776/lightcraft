@@ -46,6 +46,8 @@ mod tracker;
 mod vit;
 #[cfg(not(target_arch = "wasm32"))]
 mod weights;
+#[cfg(not(target_arch = "wasm32"))]
+mod weights_layout;
 
 use std::path::{Path, PathBuf};
 #[cfg(not(target_arch = "wasm32"))]
@@ -58,6 +60,8 @@ use candle_nn::VarBuilder;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub use tracker::Click;
+#[cfg(not(target_arch = "wasm32"))]
+pub use weights::Layout;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -128,8 +132,9 @@ pub struct Prediction {
 
 #[cfg(not(target_arch = "wasm32"))]
 impl Sam3 {
-    /// Load from a directory holding `model.safetensors` (the `facebook/sam3` checkpoint in
-    /// Hugging Face format), `vocab.json` and `merges.txt`.
+    /// Load from a directory holding `model.safetensors`, `vocab.json` and `merges.txt`. The
+    /// weights may be the `facebook/sam3` checkpoint in Hugging Face format or the same checkpoint
+    /// in Meta's original layout (the file ComfyUI's SAM 3 nodes use); see [`Layout`].
     pub fn load(dir: &Path) -> Result<Self> {
         Self::load_on(dir, best_device())
     }
@@ -149,6 +154,11 @@ impl Sam3 {
 
     pub fn device(&self) -> &Device {
         &self.device
+    }
+
+    /// How the checkpoint file names its tensors (both layouts hold the same weights).
+    pub fn layout(&self) -> Layout {
+        self.weights.layout()
     }
 
     /// Run the backbone on an RGB image (8-bit, row-major, `w × h`), stretched to the square
